@@ -25,16 +25,31 @@ def get_user_details(username, session_id):
         if response.status_code == 200:
             data = response.json()
             user_data = data.get('data', {}).get('user', {})
+            
             return {
+                # ===== VARIABLES EXISTENTES (NO SE TOCAN) =====
                 'user_id': user_data.get('id'),
                 'username': user_data.get('username'),
                 'follower_count': user_data.get('edge_followed_by', {}).get('count', 0),
                 'following_count': user_data.get('edge_follow', {}).get('count', 0),
-                "biografia": user_data.get("biography", ""),
-                "descripcion": {
-                    "nombre_completo": user_data.get("full_name", ""),
-                    "categoria": user_data.get("category_name", "")
-                }
+                'biografia': user_data.get('biography', ''),
+                'descripcion': user_data.get('full_name', ''),
+
+                # ===== CAMPOS ADICIONALES (NUEVOS) =====
+                'bio_links': user_data.get('bio_links', []),
+                'external_url': user_data.get('external_url'),
+                'category_name': user_data.get('category_name'),
+                'overall_category_name': user_data.get('overall_category_name'),
+                'is_business_account': user_data.get('is_business_account'),
+                'is_professional_account': user_data.get('is_professional_account'),
+                'is_private': user_data.get('is_private'),
+                'is_verified': user_data.get('is_verified'),
+                'business_email': user_data.get('business_email'),
+                'business_phone_number': user_data.get('business_phone_number'),
+                'profile_pic_url': user_data.get('profile_pic_url_hd'),
+                'post_count': user_data.get('edge_owner_to_timeline_media', {}).get('count', 0),
+                'highlight_reel_count': user_data.get('highlight_reel_count'),
+                'mutual_follow_count': user_data.get('edge_mutual_followed_by', {}).get('count', 0),
             }
     except Exception as e:
         print(f"Error obteniendo detalles de {username}: {e}")
@@ -60,7 +75,7 @@ def get_all_followers_list(target_username, session_id):
     
     print("Iniciando scraping de seguidores...")
  
-    while len(all_followers) < target_info['following_count']:
+    while len(all_followers) < 100:
         try:
 
             params = {'count': '50', 'search_surface': 'follow_list_page'}
@@ -147,12 +162,30 @@ def process_follower_batch(followers_batch, session_id, batch_num, total_batches
         if follower_info:
             # Agregar información relevante
             batch_data.append({
+                # ===== EXISTENTES (NO SE TOCAN) =====
                 'username': follower_info['username'],
                 'follower_count': follower_info['follower_count'],
                 'following_count': follower_info['following_count'],
                 'biografia': follower_info['biografia'],
-                'descripcion': follower_info['descripcion']
+                'descripcion': follower_info['descripcion'],
+
+                # ===== NUEVOS CAMPOS =====
+                'bio_links': follower_info.get('bio_links'),
+                'external_url': follower_info.get('external_url'),
+                'category_name': follower_info.get('category_name'),
+                'overall_category_name': follower_info.get('overall_category_name'),
+                'is_business_account': follower_info.get('is_business_account'),
+                'is_professional_account': follower_info.get('is_professional_account'),
+                'is_private': follower_info.get('is_private'),
+                'is_verified': follower_info.get('is_verified'),
+                'business_email': follower_info.get('business_email'),
+                'business_phone_number': follower_info.get('business_phone_number'),
+                'profile_pic_url': follower_info.get('profile_pic_url'),
+                'post_count': follower_info.get('post_count'),
+                'highlight_reel_count': follower_info.get('highlight_reel_count'),
+                'mutual_follow_count': follower_info.get('mutual_follow_count'),
             })
+
             processed_count += 1
             
             # Mostrar progreso cada 5 procesados
@@ -166,17 +199,7 @@ def process_follower_batch(followers_batch, session_id, batch_num, total_batches
     return batch_data
 
 def split_list_into_chunks(lst, num_chunks):
-    """
-    Divide una lista en chunks aproximadamente del mismo tamaño
-    
-    Args:
-        lst (list): Lista a dividir
-        num_chunks (int): Número de chunks a crear
-    
-    Returns:
-        list: Lista de chunks
-    """
-    
+
     # Si la lista está vacía, retornar chunks vacíos
     if len(lst) == 0:
         return [[] for _ in range(num_chunks)]
@@ -222,12 +245,30 @@ def scrape_followers_parallel(target_username, session_id, num_threads):
     
     # Inicializar lista de datos con el usuario objetivo
     all_data = [{
+        # ===== EXISTENTES (NO SE TOCAN) =====
         'username': target_info['username'],
         'follower_count': target_info['follower_count'],
         'following_count': target_info['following_count'],
         'biografia': target_info['biografia'],
-        'descripcion': target_info['descripcion']
+        'descripcion': target_info['descripcion'],
+
+        # ===== NUEVOS CAMPOS =====
+        'bio_links': target_info.get('bio_links'),
+        'external_url': target_info.get('external_url'),
+        'category_name': target_info.get('category_name'),
+        'overall_category_name': target_info.get('overall_category_name'),
+        'is_business_account': target_info.get('is_business_account'),
+        'is_professional_account': target_info.get('is_professional_account'),
+        'is_private': target_info.get('is_private'),
+        'is_verified': target_info.get('is_verified'),
+        'business_email': target_info.get('business_email'),
+        'business_phone_number': target_info.get('business_phone_number'),
+        'profile_pic_url': target_info.get('profile_pic_url'),
+        'post_count': target_info.get('post_count'),
+        'highlight_reel_count': target_info.get('highlight_reel_count'),
+        'mutual_follow_count': target_info.get('mutual_follow_count'),
     }]
+
     
     # Dividir seguidores en chunks para procesamiento paralelo
     follower_chunks = split_list_into_chunks(all_followers, num_threads)
@@ -276,7 +317,34 @@ def save_to_csv(data, filename):
 
         # Escribir datos en CSV
         with open(filepath, 'w', newline='', encoding='utf-8') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=['username', 'follower_count', 'following_count', 'biografia', 'descripcion'])
+            writer = csv.DictWriter(
+                csvfile,
+                fieldnames=[
+                    # ===== EXISTENTES (NO SE TOCAN) =====
+                    'username',
+                    'follower_count',
+                    'following_count',
+                    'biografia',
+                    'descripcion',
+
+                    # ===== NUEVOS CAMPOS =====
+                    'bio_links',
+                    'external_url',
+                    'category_name',
+                    'overall_category_name',
+                    'is_business_account',
+                    'is_professional_account',
+                    'is_private',
+                    'is_verified',
+                    'business_email',
+                    'business_phone_number',
+                    'profile_pic_url',
+                    'post_count',
+                    'highlight_reel_count',
+                    'mutual_follow_count',
+                ]
+            )
+
             writer.writeheader()  # Escribir encabezados
             writer.writerows(data)  # Escribir datos
         
